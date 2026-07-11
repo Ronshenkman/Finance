@@ -186,8 +186,12 @@ app.get('*', (req, res) => {
     res.sendFile(path.join(__dirname, 'index.html'));
 });
 
-// Start Server
-app.listen(PORT, () => {
-    console.log(`Server is running on port ${PORT}`);
-    console.log(`Open http://localhost:${PORT} in your browser to view the application.`);
-});
+// Start Server (only if running locally, not in Vercel serverless environment)
+if (!process.env.VERCEL) {
+    app.listen(PORT, () => {
+        console.log(`Server is running on port ${PORT}`);
+        console.log(`Open http://localhost:${PORT} in your browser to view the application.`);
+    });
+}
+
+module.exports = app;
