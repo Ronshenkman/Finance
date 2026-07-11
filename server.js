@@ -165,6 +165,23 @@ app.put('/api/categories/:id', async (req, res) => {
     }
 });
 
+// Delete category and cascade delete associated expenses
+app.delete('/api/categories/:id', async (req, res) => {
+    try {
+        const categoryId = req.params.id;
+        const catResult = await Category.findOneAndDelete({ id: categoryId });
+        if (!catResult) {
+            return res.status(404).json({ error: 'Category not found' });
+        }
+        // Cascade delete expenses
+        await Expense.deleteMany({ categoryId });
+        res.json({ message: 'Category and associated expenses deleted successfully' });
+    } catch (e) {
+        console.error('Error deleting category:', e);
+        res.status(500).json({ error: 'Server error deleting category' });
+    }
+});
+
 // Update billing day setting
 app.put('/api/settings', async (req, res) => {
     try {

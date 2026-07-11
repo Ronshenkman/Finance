@@ -546,6 +546,35 @@ async function deleteExpense(expenseId) {
     }
 }
 
+// Delete Category Handler (with confirmation)
+async function deleteCategory(categoryId) {
+    const category = state.categories.find(c => c.id === categoryId);
+    if (!category) return;
+
+    if (confirm(`האם אתה בטוח שברצונך למחוק את הקטגוריה "${category.name}"?\nשים לב: מחיקת הקטגוריה תמחק לצמיתות גם את כל ההוצאות המשויכות אליה!`)) {
+        try {
+            const res = await fetch(`/api/categories/${categoryId}`, {
+                method: 'DELETE'
+            });
+            if (!res.ok) throw new Error('API delete failed');
+            
+            state.categories = state.categories.filter(c => c.id !== categoryId);
+            state.expenses = state.expenses.filter(e => e.categoryId !== categoryId);
+            saveStateToLocalStorage();
+            updateSelectors();
+            renderApp();
+        } catch (err) {
+            console.error('Error deleting category from server:', err);
+            // Fallback for offline mode
+            state.categories = state.categories.filter(c => c.id !== categoryId);
+            state.expenses = state.expenses.filter(e => e.categoryId !== categoryId);
+            saveStateToLocalStorage();
+            updateSelectors();
+            renderApp();
+        }
+    }
+}
+
 // Open Inline Edit Budget Modal
 function openEditBudgetModal(categoryId) {
     const category = state.categories.find(c => c.id === categoryId);
@@ -674,7 +703,10 @@ function renderCategoryCards() {
                         <div class="category-budget-limit">יעד חודשי: <span style="cursor: pointer; text-decoration: underline;" onclick="window.triggerEditBudget('${cat.id}')">${formatCurrency(cat.budget)}</span></div>
                     </div>
                 </div>
-                <span class="status-badge ${statusClass}">${statusText}</span>
+                <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 8px;">
+                    <span class="status-badge ${statusClass}">${statusText}</span>
+                    <button class="btn-danger-link btn-icon btn-close" style="font-size: 13px; width: 24px; height: 24px;" onclick="window.triggerDeleteCategory('${cat.id}')" title="מחק קטגוריה">🗑️</button>
+                </div>
             </div>
             <div class="category-budget-numbers">
                 <div class="category-spent">${formatCurrency(spent)}</div>
@@ -694,9 +726,13 @@ function renderCategoryCards() {
     });
 }
 
-// Expose click function to global window scope safely for inline elements
+// Expose click functions to global window scope safely for inline elements
 window.triggerEditBudget = function(categoryId) {
     openEditBudgetModal(categoryId);
+};
+
+window.triggerDeleteCategory = function(categoryId) {
+    deleteCategory(categoryId);
 };
 
 // Render recent transactions with search & filter applied
