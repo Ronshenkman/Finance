@@ -120,31 +120,47 @@ function getPastDateString(daysAgo) {
     return date.toISOString().split('T')[0];
 }
 
-// Local Storage Integration
-function loadState() {
+// Local Storage Backup Integration (for offline support)
+function loadStateFromLocalStorage() {
     const saved = localStorage.getItem('finance_tracker_github');
     if (saved) {
         try {
             state = JSON.parse(saved);
-            // Ensure UI tab state and defaults match loaded structure
             if (!state.activeChartType) state.activeChartType = 'categories';
             if (state.billingDay === undefined) state.billingDay = 1;
             if (!state.currentAnchorDate) state.currentAnchorDate = new Date().toISOString();
         } catch (e) {
-            console.error('Error parsing saved state, resetting to defaults.', e);
+            console.error('Error parsing local state, resetting to defaults.', e);
             state = JSON.parse(JSON.stringify(DEFAULT_DATA));
             state.activeChartType = 'categories';
-            saveState();
+            saveStateToLocalStorage();
         }
     } else {
         state = JSON.parse(JSON.stringify(DEFAULT_DATA));
         state.activeChartType = 'categories';
-        saveState();
+        saveStateToLocalStorage();
     }
 }
 
-function saveState() {
+function saveStateToLocalStorage() {
     localStorage.setItem('finance_tracker_github', JSON.stringify(state));
+}
+
+// Fetch Initial Data from Server
+async function loadStateFromServer() {
+    try {
+        const res = await fetch('/api/init');
+        if (!res.ok) throw new Error('Network response was not ok');
+        const data = await res.json();
+        
+        state.categories = data.categories || [];
+        state.expenses = data.expenses || [];
+        state.billingDay = data.billingDay || 1;
+        state.currentAnchorDate = new Date().toISOString(); // Default to current date on load
+    } catch (e) {
+        console.warn('Backend server offline. Falling back to local storage.', e);
+        loadStateFromLocalStorage();
+    }
 }
 
 // DOM Elements
@@ -181,15 +197,22 @@ let selectedEmoji = EMOJIS[0];
 let selectedColorObj = COLORS[0];
 
 // Initialize application
-document.addEventListener('DOMContentLoaded', () => {
-    loadState();
+document.addEventListener('DOMContentLoaded', async () => {
     setupEventListeners();
     buildPickers();
-    updateSelectors();
     
     // Set default date in expense modal to today
     document.getElementById('expense-date').value = new Date().toISOString().split('T')[0];
     
+    // Show a loading text or indicator while fetching
+    categoriesGrid.innerHTML = `
+        <div class="empty-state" style="grid-column: 1 / -1;">
+            <div class="empty-icon">⏳</div>
+            <div>מתחבר למסד הנתונים...</div>
+        </div>`;
+    
+    await loadStateFromServer();
+    updateSelectors();
     renderApp();
 });
 
@@ -339,7 +362,7 @@ function closeModal(modal) {
 }
 
 // Add Expense Form Handler
-function handleAddExpense(e) {
+async function handleAddExpense(e) {
     e.preventDefault();
     const amount = parseFloat(document.getElementById('expense-amount').value);
     const categoryId = document.getElementById('expense-category').value;
@@ -359,14 +382,30 @@ function handleAddExpense(e) {
         description
     };
 
-    state.expenses.push(newExpense);
-    saveState();
-    closeModal(expenseModal);
-    renderApp();
+    try {
+        const res = await fetch('/api/expenses', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(newExpense)
+        });
+        if (!res.ok) throw new Error('API save failed');
+        
+        state.expenses.push(newExpense);
+        saveStateToLocalStorage();
+        closeModal(expenseModal);
+        renderApp();
+    } catch (err) {
+        console.error('Error saving expense to server:', err);
+        // Fallback for offline mode
+        state.expenses.push(newExpense);
+        saveStateToLocalStorage();
+        closeModal(expenseModal);
+        renderApp();
+    }
 }
 
 // Add Category Form Handler
-function handleAddCategory(e) {
+async function handleAddCategory(e) {
     e.preventDefault();
     const name = document.getElementById('category-name').value.trim();
     const budget = parseFloat(document.getElementById('category-budget').value);
@@ -391,15 +430,32 @@ function handleAddCategory(e) {
         colorAlpha: selectedColorObj.alpha
     };
 
-    state.categories.push(newCategory);
-    saveState();
-    closeModal(categoryModal);
-    updateSelectors();
-    renderApp();
+    try {
+        const res = await fetch('/api/categories', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(newCategory)
+        });
+        if (!res.ok) throw new Error('API save failed');
+        
+        state.categories.push(newCategory);
+        saveStateToLocalStorage();
+        closeModal(categoryModal);
+        updateSelectors();
+        renderApp();
+    } catch (err) {
+        console.error('Error saving category to server:', err);
+        // Fallback for offline mode
+        state.categories.push(newCategory);
+        saveStateToLocalStorage();
+        closeModal(categoryModal);
+        updateSelectors();
+        renderApp();
+    }
 }
 
 // Update Budget Form Handler
-function handleUpdateBudget(e) {
+async function handleUpdateBudget(e) {
     e.preventDefault();
     const categoryId = document.getElementById('edit-budget-category-id').value;
     const newBudget = parseFloat(document.getElementById('edit-category-budget').value);
@@ -409,35 +465,84 @@ function handleUpdateBudget(e) {
         return;
     }
 
-    const catIndex = state.categories.findIndex(c => c.id === categoryId);
-    if (catIndex !== -1) {
-        state.categories[catIndex].budget = newBudget;
-        saveState();
-        closeModal(budgetModal);
-        renderApp();
+    try {
+        const res = await fetch(`/api/categories/${categoryId}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ budget: newBudget })
+        });
+        if (!res.ok) throw new Error('API update failed');
+        
+        const catIndex = state.categories.findIndex(c => c.id === categoryId);
+        if (catIndex !== -1) {
+            state.categories[catIndex].budget = newBudget;
+            saveStateToLocalStorage();
+            closeModal(budgetModal);
+            renderApp();
+        }
+    } catch (err) {
+        console.error('Error updating budget to server:', err);
+        // Fallback for offline mode
+        const catIndex = state.categories.findIndex(c => c.id === categoryId);
+        if (catIndex !== -1) {
+            state.categories[catIndex].budget = newBudget;
+            saveStateToLocalStorage();
+            closeModal(budgetModal);
+            renderApp();
+        }
     }
 }
 
 // Update Billing Settings Handler
-function handleUpdateSettings(e) {
+async function handleUpdateSettings(e) {
     e.preventDefault();
     const day = parseInt(document.getElementById('settings-billing-day').value);
     if (isNaN(day) || day < 1 || day > 31) {
         alert('נא להזין יום חיוב תקין בין 1 ל-31.');
         return;
     }
-    state.billingDay = day;
-    saveState();
-    closeModal(settingsModal);
-    renderApp();
+    
+    try {
+        const res = await fetch('/api/settings', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ billingDay: day })
+        });
+        if (!res.ok) throw new Error('API update failed');
+        
+        state.billingDay = day;
+        saveStateToLocalStorage();
+        closeModal(settingsModal);
+        renderApp();
+    } catch (err) {
+        console.error('Error updating settings to server:', err);
+        // Fallback for offline mode
+        state.billingDay = day;
+        saveStateToLocalStorage();
+        closeModal(settingsModal);
+        renderApp();
+    }
 }
 
 // Delete Expense Handler
-function deleteExpense(expenseId) {
+async function deleteExpense(expenseId) {
     if (confirm('האם אתה בטוח שברצונך למחוק הוצאה זו?')) {
-        state.expenses = state.expenses.filter(exp => exp.id !== expenseId);
-        saveState();
-        renderApp();
+        try {
+            const res = await fetch(`/api/expenses/${expenseId}`, {
+                method: 'DELETE'
+            });
+            if (!res.ok) throw new Error('API delete failed');
+            
+            state.expenses = state.expenses.filter(exp => exp.id !== expenseId);
+            saveStateToLocalStorage();
+            renderApp();
+        } catch (err) {
+            console.error('Error deleting expense from server:', err);
+            // Fallback for offline mode
+            state.expenses = state.expenses.filter(exp => exp.id !== expenseId);
+            saveStateToLocalStorage();
+            renderApp();
+        }
     }
 }
 
