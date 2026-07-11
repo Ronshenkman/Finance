@@ -20,7 +20,10 @@
                     <div class="subtitle">מעקב הוצאות ויעדים חכמים</div>
                 </div>
             </div>
-            <div style="display: flex; gap: 12px;">
+            <div style="display: flex; gap: 12px; align-items: center;">
+                <button class="btn btn-secondary btn-icon" id="btn-open-settings-modal" title="הגדרות מחזור חיוב">
+                    <span>⚙️</span>
+                </button>
                 <button class="btn btn-secondary" id="btn-open-category-modal">
                     <span>➕ קטגוריה חדשה</span>
                 </button>
@@ -29,6 +32,16 @@
                 </button>
             </div>
         </header>
+
+        <!-- Month Switcher & Billing Period Info -->
+        <div class="month-switcher-bar glass-card">
+            <button class="switcher-btn" id="btn-prev-month" title="חודש קודם">❮</button>
+            <div class="month-display-container">
+                <span class="active-month-text" id="active-month-label">יולי 2026</span>
+                <span class="active-period-dates" id="active-period-label">01/07/2026 - 31/07/2026</span>
+            </div>
+            <button class="switcher-btn" id="btn-next-month" title="חודש הבא">❯</button>
+        </div>
 
         <!-- Dashboard Widgets -->
         <main>
@@ -219,6 +232,29 @@
                 <div class="form-actions">
                     <button type="button" class="btn btn-secondary btn-cancel" id="btn-cancel-budget">ביטול</button>
                     <button type="submit" class="btn btn-primary">עדכן תקציב</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL: Billing Settings -->
+    <div class="modal-overlay" id="settings-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title">הגדרות מחזור חיוב</h3>
+                <button class="btn-close" id="btn-close-settings-modal">&times;</button>
+            </div>
+            <form id="settings-form">
+                <div class="form-group">
+                    <label class="form-label" for="settings-billing-day">יום תחילת מחזור החיוב (1-31)</label>
+                    <input type="number" min="1" max="31" class="form-control" id="settings-billing-day" placeholder="1" required>
+                    <small style="color: var(--text-secondary); display: block; margin-top: 6px; font-size: 12px;">
+                        הגדר את היום בחודש שבו מתחיל מחזור כרטיס האשראי או התקציב שלך. כל החישובים, הגרפים והכרטיסים יסתננו אוטומטית לפי מחזור זה.
+                    </small>
+                </div>
+                <div class="form-actions">
+                    <button type="button" class="btn btn-secondary btn-cancel" id="btn-cancel-settings">ביטול</button>
+                    <button type="submit" class="btn btn-primary">שמור הגדרות</button>
                 </div>
             </form>
         </div>

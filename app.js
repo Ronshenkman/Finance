@@ -2,6 +2,8 @@
 let state = {
     categories: [],
     expenses: [],
+    billingDay: 1,
+    currentAnchorDate: new Date().toISOString(),
     activeChartType: 'categories' // 'categories' or 'trend'
 };
 
@@ -43,6 +45,59 @@ function formatDate(dateString) {
     }).format(date);
 }
 
+// Helper: Calculate Billing Period range (Start & End dates)
+function getBillingPeriod(anchorDateStr, billingDay) {
+    const anchor = new Date(anchorDateStr);
+    const year = anchor.getFullYear();
+    const month = anchor.getMonth(); // 0-11
+    const day = anchor.getDate();
+
+    let startYear = year;
+    let startMonth = month;
+
+    if (day < billingDay) {
+        startMonth = month - 1;
+        if (startMonth < 0) {
+            startMonth = 11;
+            startYear = year - 1;
+        }
+    }
+
+    const maxDaysInStartMonth = new Date(startYear, startMonth + 1, 0).getDate();
+    const actualStartDay = Math.min(billingDay, maxDaysInStartMonth);
+
+    const startDate = new Date(startYear, startMonth, actualStartDay, 0, 0, 0, 0);
+
+    let endMonth = startMonth + 1;
+    let endYear = startYear;
+    if (endMonth > 11) {
+        endMonth = 0;
+        endYear = startYear + 1;
+    }
+
+    const maxDaysInEndMonth = new Date(endYear, endMonth + 1, 0).getDate();
+    let actualEndDay = billingDay - 1;
+
+    let endDate;
+    if (billingDay === 1 || actualEndDay <= 0) {
+        endDate = new Date(endYear, endMonth, 0, 23, 59, 59, 999);
+    } else {
+        const finalEndDay = Math.min(actualEndDay, maxDaysInEndMonth);
+        endDate = new Date(endYear, endMonth, finalEndDay, 23, 59, 59, 999);
+    }
+
+    return { start: startDate, end: endDate };
+}
+
+// Helper: Get expenses that belong to the active billing cycle
+function getActiveExpenses() {
+    const period = getBillingPeriod(state.currentAnchorDate, state.billingDay);
+    return state.expenses.filter(exp => {
+        const expTime = new Date(exp.date + 'T00:00:00').getTime();
+        return expTime >= period.start.getTime() && expTime <= period.end.getTime();
+    });
+}
+
 // Default initial state data
 const DEFAULT_DATA = {
     categories: [
@@ -53,7 +108,9 @@ const DEFAULT_DATA = {
         { id: 'cat-5', name: 'פארמה', icon: '💊', budget: 300, color: '#14b8a6', colorAlpha: 'rgba(20, 184, 166, 0.15)' },
         { id: 'cat-6', name: 'חד פעמי', icon: '🥤', budget: 200, color: '#0ea5e9', colorAlpha: 'rgba(14, 165, 233, 0.15)' }
     ],
-    expenses: []
+    expenses: [],
+    billingDay: 1,
+    currentAnchorDate: new Date().toISOString()
 };
 
 // Helper to calculate past date string (kept for future extensions)
@@ -69,8 +126,10 @@ function loadState() {
     if (saved) {
         try {
             state = JSON.parse(saved);
-            // Ensure UI tab state matches loaded structure
+            // Ensure UI tab state and defaults match loaded structure
             if (!state.activeChartType) state.activeChartType = 'categories';
+            if (state.billingDay === undefined) state.billingDay = 1;
+            if (!state.currentAnchorDate) state.currentAnchorDate = new Date().toISOString();
         } catch (e) {
             console.error('Error parsing saved state, resetting to defaults.', e);
             state = JSON.parse(JSON.stringify(DEFAULT_DATA));
@@ -104,10 +163,18 @@ const expenseCategorySelect = document.getElementById('expense-category');
 const expenseModal = document.getElementById('expense-modal');
 const categoryModal = document.getElementById('category-modal');
 const budgetModal = document.getElementById('budget-modal');
+const settingsModal = document.getElementById('settings-modal');
 
 // Buttons
 const btnOpenExpenseModal = document.getElementById('btn-open-expense-modal');
 const btnOpenCategoryModal = document.getElementById('btn-open-category-modal');
+const btnOpenSettingsModal = document.getElementById('btn-open-settings-modal');
+
+// Month Switcher Elements
+const btnPrevMonth = document.getElementById('btn-prev-month');
+const btnNextMonth = document.getElementById('btn-next-month');
+const activeMonthLabel = document.getElementById('active-month-label');
+const activePeriodLabel = document.getElementById('active-period-label');
 
 // Selected items in custom category form
 let selectedEmoji = EMOJIS[0];
@@ -186,6 +253,7 @@ function setupEventListeners() {
     // Modal toggle event listeners
     btnOpenExpenseModal.addEventListener('click', () => openModal(expenseModal));
     btnOpenCategoryModal.addEventListener('click', () => openModal(categoryModal));
+    btnOpenSettingsModal.addEventListener('click', () => openModal(settingsModal));
 
     document.getElementById('btn-close-expense-modal').addEventListener('click', () => closeModal(expenseModal));
     document.getElementById('btn-cancel-expense').addEventListener('click', () => closeModal(expenseModal));
@@ -196,8 +264,11 @@ function setupEventListeners() {
     document.getElementById('btn-close-budget-modal').addEventListener('click', () => closeModal(budgetModal));
     document.getElementById('btn-cancel-budget').addEventListener('click', () => closeModal(budgetModal));
 
+    document.getElementById('btn-close-settings-modal').addEventListener('click', () => closeModal(settingsModal));
+    document.getElementById('btn-cancel-settings').addEventListener('click', () => closeModal(settingsModal));
+
     // Handle clicking outside modal content to close it
-    [expenseModal, categoryModal, budgetModal].forEach(modal => {
+    [expenseModal, categoryModal, budgetModal, settingsModal].forEach(modal => {
         modal.addEventListener('click', (e) => {
             if (e.target === modal) {
                 closeModal(modal);
@@ -209,6 +280,11 @@ function setupEventListeners() {
     document.getElementById('expense-form').addEventListener('submit', handleAddExpense);
     document.getElementById('category-form').addEventListener('submit', handleAddCategory);
     document.getElementById('budget-form').addEventListener('submit', handleUpdateBudget);
+    document.getElementById('settings-form').addEventListener('submit', handleUpdateSettings);
+
+    // Month Switcher Listeners
+    btnPrevMonth.addEventListener('click', () => navigateMonth(-1));
+    btnNextMonth.addEventListener('click', () => navigateMonth(1));
 
     // Filters and search
     filterCategory.addEventListener('change', renderTransactions);
@@ -224,6 +300,14 @@ function setupEventListeners() {
             renderCharts();
         });
     });
+}
+
+function navigateMonth(direction) {
+    const current = new Date(state.currentAnchorDate);
+    current.setMonth(current.getMonth() + direction);
+    state.currentAnchorDate = current.toISOString();
+    saveState();
+    renderApp();
 }
 
 function openModal(modal) {
@@ -245,6 +329,8 @@ function openModal(modal) {
             if (idx === 0) { el.classList.add('selected'); selectedColorObj = COLORS[idx]; }
             else el.classList.remove('selected');
         });
+    } else if (modal === settingsModal) {
+        document.getElementById('settings-billing-day').value = state.billingDay;
     }
 }
 
@@ -332,6 +418,20 @@ function handleUpdateBudget(e) {
     }
 }
 
+// Update Billing Settings Handler
+function handleUpdateSettings(e) {
+    e.preventDefault();
+    const day = parseInt(document.getElementById('settings-billing-day').value);
+    if (isNaN(day) || day < 1 || day > 31) {
+        alert('נא להזין יום חיוב תקין בין 1 ל-31.');
+        return;
+    }
+    state.billingDay = day;
+    saveState();
+    closeModal(settingsModal);
+    renderApp();
+}
+
 // Delete Expense Handler
 function deleteExpense(expenseId) {
     if (confirm('האם אתה בטוח שברצונך למחוק הוצאה זו?')) {
@@ -362,10 +462,19 @@ function renderApp() {
 
 // Render Dashboard totals and progress ring
 function renderDashboard() {
+    const activeExpenses = getActiveExpenses();
+    const period = getBillingPeriod(state.currentAnchorDate, state.billingDay);
+    
+    // Render Month Switcher Labels
+    const monthNames = ["ינואר", "פברואר", "מרץ", "אפריל", "מאי", "יוני", "יולי", "אוגוסט", "ספטמבר", "אוקטובר", "נובמבר", "דצמבר"];
+    const anchor = new Date(state.currentAnchorDate);
+    activeMonthLabel.textContent = `${monthNames[anchor.getMonth()]} ${anchor.getFullYear()}`;
+    activePeriodLabel.textContent = `${formatDate(period.start)} - ${formatDate(period.end)}`;
+
     // Total Budget
     const totalBudget = state.categories.reduce((acc, cat) => acc + cat.budget, 0);
     // Total Spent
-    const totalSpent = state.expenses.reduce((acc, exp) => acc + exp.amount, 0);
+    const totalSpent = activeExpenses.reduce((acc, exp) => acc + exp.amount, 0);
     // Remaining Budget
     const totalRemaining = totalBudget - totalSpent;
 
@@ -402,6 +511,7 @@ function renderDashboard() {
 // Render Category Card Grid
 function renderCategoryCards() {
     categoriesGrid.innerHTML = '';
+    const activeExpenses = getActiveExpenses();
 
     if (state.categories.length === 0) {
         categoriesGrid.innerHTML = `
@@ -414,7 +524,7 @@ function renderCategoryCards() {
 
     state.categories.forEach(cat => {
         // Sum expenses in this category
-        const spent = state.expenses
+        const spent = activeExpenses
             .filter(exp => exp.categoryId === cat.id)
             .reduce((acc, exp) => acc + exp.amount, 0);
         
@@ -491,7 +601,7 @@ function renderTransactions() {
     const searchVal = searchTx.value.trim().toLowerCase();
 
     // Filter logic
-    let filtered = state.expenses.filter(exp => {
+    let filtered = getActiveExpenses().filter(exp => {
         const categoryMatch = filterVal === 'all' || exp.categoryId === filterVal;
         const descriptionMatch = exp.description.toLowerCase().includes(searchVal);
         return categoryMatch && descriptionMatch;
@@ -560,19 +670,21 @@ window.triggerDeleteExpense = function(expenseId) {
 // Render Visual Analytics (Chart.js)
 function renderCharts() {
     const ctx = document.getElementById('expenseChart').getContext('2d');
+    const activeExpenses = getActiveExpenses();
+    const period = getBillingPeriod(state.currentAnchorDate, state.billingDay);
     
     // Destroy previous Chart instance if active
     if (chartInstance) {
         chartInstance.destroy();
     }
 
-    if (state.expenses.length === 0 || state.categories.length === 0) {
+    if (activeExpenses.length === 0 || state.categories.length === 0) {
         // Render Empty state overlay on chart container if no data is available
         ctx.clearRect(0, 0, 400, 400);
         ctx.fillStyle = '#9ca3af';
         ctx.font = '16px Assistant';
         ctx.textAlign = 'center';
-        ctx.fillText('אין מספיק נתונים להצגת תרשימים. הוסף הוצאות כדי לצפות בגרפים.', ctx.canvas.width / 2, ctx.canvas.height / 2);
+        ctx.fillText('אין מספיק נתונים להצגת תרשימים במחזור זה. הוסף הוצאות כדי לצפות בגרפים.', ctx.canvas.width / 2, ctx.canvas.height / 2);
         return;
     }
 
@@ -580,7 +692,7 @@ function renderCharts() {
         // DOUGHNUT CHART - Category distribution
         const catSpentMap = {};
         state.categories.forEach(c => { catSpentMap[c.id] = 0; });
-        state.expenses.forEach(exp => {
+        activeExpenses.forEach(exp => {
             if (catSpentMap[exp.categoryId] !== undefined) {
                 catSpentMap[exp.categoryId] += exp.amount;
             }
@@ -645,26 +757,28 @@ function renderCharts() {
         });
 
     } else {
-        // LINE CHART - Daily Trend over the last 14 days (or 30 days) to keep it compact
-        const daysToTrack = 14;
+        // LINE CHART - Daily Trend over the active billing cycle
         const trendData = [];
         const dateLabels = [];
         
-        // Build daily bins descending
-        for (let i = daysToTrack - 1; i >= 0; i--) {
-            const date = new Date();
-            date.setDate(date.getDate() - i);
-            const dateString = date.toISOString().split('T')[0];
+        // Loop day-by-day from start to end of billing cycle
+        const currentDate = new Date(period.start);
+        const endDate = new Date(period.end);
+        
+        while (currentDate <= endDate) {
+            const dateString = currentDate.toISOString().split('T')[0];
             
             // Format for label display: DD/MM
-            const labelStr = `${String(date.getDate()).padStart(2, '0')}/${String(date.getMonth() + 1).padStart(2, '0')}`;
+            const labelStr = `${String(currentDate.getDate()).padStart(2, '0')}/${String(currentDate.getMonth() + 1).padStart(2, '0')}`;
             dateLabels.push(labelStr);
             
             // Sum expenses on this date
-            const daySum = state.expenses
+            const daySum = activeExpenses
                 .filter(exp => exp.date === dateString)
                 .reduce((acc, exp) => acc + exp.amount, 0);
             trendData.push(daySum);
+            
+            currentDate.setDate(currentDate.getDate() + 1);
         }
 
         // Gradient configuration for a glowing trend line
