@@ -571,12 +571,20 @@ async function handleAddExpense(e) {
     const amount = parseFloat(document.getElementById('expense-amount').value);
     const categoryId = document.getElementById('expense-category').value;
     const date = document.getElementById('expense-date').value;
-    const description = document.getElementById('expense-desc').value.trim();
+    const rawDesc = document.getElementById('expense-desc').value.trim();
 
-    if (isNaN(amount) || amount <= 0 || !categoryId || !date || !description) {
-        alert('נא למלא את כל השדות בצורה תקינה.');
+    if (!categoryId) {
+        alert('נא ליצור או לבחור קטגוריה תחילה.');
         return;
     }
+
+    if (isNaN(amount) || amount <= 0 || !date) {
+        alert('נא להזין סכום ותאריך תקינים.');
+        return;
+    }
+
+    const category = state.categories.find(c => c.id === categoryId);
+    const description = rawDesc || (category ? category.name : 'הוצאה');
 
     const newExpense = {
         id: 'exp-' + Date.now(),

@@ -41,7 +41,7 @@ const ExpenseSchema = new mongoose.Schema({
     amount: { type: Number, required: true },
     categoryId: { type: String, required: true },
     date: { type: String, required: true },
-    description: { type: String, required: true }
+    description: { type: String, default: '' }
 });
 
 const SettingSchema = new mongoose.Schema({
