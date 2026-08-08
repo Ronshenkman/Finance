@@ -74,17 +74,24 @@ async function connectDB() {
 connectDB().catch(err => console.error('Initial MongoDB connection error:', err));
 
 // Serverless Middleware: Ensure DB is connected before handling any API request
-app.use('/api', async (req, res, next) => {
-    try {
-        await connectDB();
+app.use(async (req, res, next) => {
+    // Only intercept API calls
+    const isApiRequest = req.path.startsWith('/api') || 
+                         ['/sync-status', '/init', '/expenses', '/categories', '/users', '/settings'].some(p => req.path.startsWith(p));
+    if (isApiRequest) {
+        try {
+            await connectDB();
+            next();
+        } catch (err) {
+            console.error('API DB Connection Middleware Error:', err);
+            return res.status(500).json({
+                ok: false,
+                error: 'Database connection failed',
+                details: err.message
+            });
+        }
+    } else {
         next();
-    } catch (err) {
-        console.error('API DB Connection Middleware Error:', err);
-        return res.status(500).json({
-            ok: false,
-            error: 'Database connection failed',
-            details: err.message
-        });
     }
 });
 
