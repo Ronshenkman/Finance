@@ -445,6 +445,13 @@ function openModal(modal) {
         });
     } else if (modal === settingsModal) {
         document.getElementById('settings-billing-day').value = state.billingDay;
+    } else if (modal === userModal) {
+        const userNameInput = document.getElementById('user-name');
+        if (userNameInput) userNameInput.value = '';
+        document.querySelectorAll('#user-color-picker .color-dot').forEach((el, idx) => {
+            if (idx === 0) { el.classList.add('selected'); selectedUserColorObj = COLORS[idx]; }
+            else el.classList.remove('selected');
+        });
     }
 }
 
