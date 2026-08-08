@@ -849,3 +849,39 @@ h1 {
 #btn-open-settings-modal:hover span {
     transform: rotate(90deg);
 }
+
+/* User Selector Bar */
+.user-selector-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid var(--card-border);
+    padding: 4px 10px;
+    border-radius: var(--border-radius-md);
+}
+
+.user-avatar-badge {
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background-color: var(--accent-indigo);
+    box-shadow: 0 0 8px var(--accent-indigo);
+    flex-shrink: 0;
+}
+
+.user-select-dropdown {
+    background: transparent;
+    border: none;
+    color: var(--text-primary);
+    font-size: 15px;
+    font-weight: 700;
+    cursor: pointer;
+    outline: none;
+    padding: 4px 6px;
+}
+
+.user-select-dropdown option {
+    background-color: var(--bg-secondary);
+    color: var(--text-primary);
+}

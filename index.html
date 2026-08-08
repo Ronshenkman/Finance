@@ -20,7 +20,19 @@
                     <div class="subtitle">מעקב הוצאות ויעדים חכמים</div>
                 </div>
             </div>
-            <div style="display: flex; gap: 12px; align-items: center;">
+            <div style="display: flex; gap: 12px; align-items: center; flex-wrap: wrap;">
+                <div class="user-selector-wrapper">
+                    <span class="user-avatar-badge" id="active-user-dot"></span>
+                    <select class="user-select-dropdown" id="user-select-dropdown" title="בחר משתמש">
+                        <!-- Dynamically populated options -->
+                    </select>
+                    <button class="btn btn-secondary btn-icon" id="btn-open-user-modal" title="הוסף פרופיל משתמש חדש">
+                        <span>👤+</span>
+                    </button>
+                    <button class="btn btn-danger-link btn-icon" id="btn-delete-active-user" title="מחק פרופיל נוכחי" style="font-size: 13px;">
+                        <span>🗑️</span>
+                    </button>
+                </div>
                 <button class="btn btn-secondary btn-icon" id="btn-open-settings-modal" title="הגדרות מחזור חיוב">
                     <span>⚙️</span>
                 </button>
@@ -255,6 +267,30 @@
                 <div class="form-actions">
                     <button type="button" class="btn btn-secondary btn-cancel" id="btn-cancel-settings">ביטול</button>
                     <button type="submit" class="btn btn-primary">שמור הגדרות</button>
+                </div>
+            </form>
+        </div>
+    <!-- MODAL: Add User Profile -->
+    <div class="modal-overlay" id="user-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title">הוספת פרופיל משתמש חדש</h3>
+                <button class="btn-close" id="btn-close-user-modal">&times;</button>
+            </div>
+            <form id="user-form">
+                <div class="form-group">
+                    <label class="form-label" for="user-name">שם המשתמש / הפרופיל</label>
+                    <input type="text" class="form-control" id="user-name" placeholder="למשל: דניאל, רועי, עסק..." required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">בחר צבע נושא לפרופיל</label>
+                    <div class="picker-grid" id="user-color-picker" style="grid-template-columns: repeat(7, 1fr);">
+                        <!-- Populated by JS -->
+                    </div>
+                </div>
+                <div class="form-actions">
+                    <button type="button" class="btn btn-secondary btn-cancel" id="btn-cancel-user">ביטול</button>
+                    <button type="submit" class="btn btn-primary">צור פרופיל</button>
                 </div>
             </form>
         </div>

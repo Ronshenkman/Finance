@@ -1,5 +1,7 @@
 // App State
 let state = {
+    users: [],
+    activeUserId: '',
     categories: [],
     expenses: [],
     billingDay: 1,
@@ -126,20 +128,31 @@ function loadStateFromLocalStorage() {
     if (saved) {
         try {
             state = JSON.parse(saved);
+            if (!state.users || state.users.length === 0) {
+                state.users = [{ id: 'user-default', name: 'משתמש ראשי', color: '#6366f1' }];
+            }
+            if (!state.activeUserId) {
+                state.activeUserId = state.users[0].id;
+            }
             if (!state.activeChartType) state.activeChartType = 'categories';
             if (state.billingDay === undefined) state.billingDay = 1;
             if (!state.currentAnchorDate) state.currentAnchorDate = new Date().toISOString();
         } catch (e) {
             console.error('Error parsing local state, resetting to defaults.', e);
             state = JSON.parse(JSON.stringify(DEFAULT_DATA));
+            state.users = [{ id: 'user-default', name: 'משתמש ראשי', color: '#6366f1' }];
+            state.activeUserId = 'user-default';
             state.activeChartType = 'categories';
             saveStateToLocalStorage();
         }
     } else {
         state = JSON.parse(JSON.stringify(DEFAULT_DATA));
+        state.users = [{ id: 'user-default', name: 'משתמש ראשי', color: '#6366f1' }];
+        state.activeUserId = 'user-default';
         state.activeChartType = 'categories';
         saveStateToLocalStorage();
     }
+    updateUserSelectorUI();
 }
 
 function saveStateToLocalStorage() {
@@ -153,14 +166,20 @@ function saveState() {
 // Fetch Initial Data from Server
 async function loadStateFromServer() {
     try {
-        const res = await fetch('/api/init');
+        const activeIdParam = state.activeUserId ? `?userId=${encodeURIComponent(state.activeUserId)}` : '';
+        const res = await fetch(`/api/init${activeIdParam}`);
         if (!res.ok) throw new Error('Network response was not ok');
         const data = await res.json();
         
+        state.users = data.users || [];
+        state.activeUserId = data.activeUserId || (state.users.length > 0 ? state.users[0].id : 'user-default');
         state.categories = data.categories || [];
         state.expenses = data.expenses || [];
         state.billingDay = data.billingDay || 1;
         state.currentAnchorDate = new Date().toISOString(); // Default to current date on load
+        
+        updateUserSelectorUI();
+        saveStateToLocalStorage();
     } catch (e) {
         console.warn('Backend server offline. Falling back to local storage.', e);
         loadStateFromLocalStorage();
@@ -184,11 +203,16 @@ const expenseModal = document.getElementById('expense-modal');
 const categoryModal = document.getElementById('category-modal');
 const budgetModal = document.getElementById('budget-modal');
 const settingsModal = document.getElementById('settings-modal');
+const userModal = document.getElementById('user-modal');
 
 // Buttons
 const btnOpenExpenseModal = document.getElementById('btn-open-expense-modal');
 const btnOpenCategoryModal = document.getElementById('btn-open-category-modal');
 const btnOpenSettingsModal = document.getElementById('btn-open-settings-modal');
+const btnOpenUserModal = document.getElementById('btn-open-user-modal');
+const btnDeleteActiveUser = document.getElementById('btn-delete-active-user');
+const userSelectDropdown = document.getElementById('user-select-dropdown');
+const activeUserDot = document.getElementById('active-user-dot');
 
 // Month Switcher Elements
 const btnPrevMonth = document.getElementById('btn-prev-month');
@@ -196,9 +220,10 @@ const btnNextMonth = document.getElementById('btn-next-month');
 const activeMonthLabel = document.getElementById('active-month-label');
 const activePeriodLabel = document.getElementById('active-period-label');
 
-// Selected items in custom category form
+// Selected items in custom category & user forms
 let selectedEmoji = EMOJIS[0];
 let selectedColorObj = COLORS[0];
+let selectedUserColorObj = COLORS[0];
 
 // Initialize application
 document.addEventListener('DOMContentLoaded', async () => {
@@ -220,7 +245,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     renderApp();
 });
 
-// Setup Form Pickers (Emoji & Colors)
+// Setup Form Pickers (Emoji, Colors & User Colors)
 function buildPickers() {
     const iconPicker = document.getElementById('icon-picker');
     iconPicker.innerHTML = '';
@@ -250,6 +275,50 @@ function buildPickers() {
         });
         colorPicker.appendChild(dot);
     });
+
+    const userColorPicker = document.getElementById('user-color-picker');
+    if (userColorPicker) {
+        userColorPicker.innerHTML = '';
+        COLORS.forEach((color, index) => {
+            const dot = document.createElement('div');
+            dot.className = 'color-dot' + (index === 0 ? ' selected' : '');
+            dot.style.backgroundColor = color.hex;
+            dot.style.setProperty('--dot-color', color.hex);
+            dot.addEventListener('click', () => {
+                document.querySelectorAll('#user-color-picker .color-dot').forEach(el => el.classList.remove('selected'));
+                dot.classList.add('selected');
+                selectedUserColorObj = color;
+            });
+            userColorPicker.appendChild(dot);
+        });
+    }
+}
+
+// Update User Selector Dropdown & Avatar Badge
+function updateUserSelectorUI() {
+    if (!userSelectDropdown) return;
+    userSelectDropdown.innerHTML = '';
+    
+    (state.users || []).forEach(u => {
+        const opt = document.createElement('option');
+        opt.value = u.id;
+        opt.textContent = u.name;
+        userSelectDropdown.appendChild(opt);
+    });
+    
+    if (state.activeUserId) {
+        userSelectDropdown.value = state.activeUserId;
+    }
+    
+    const activeUser = (state.users || []).find(u => u.id === state.activeUserId);
+    if (activeUser && activeUserDot) {
+        activeUserDot.style.backgroundColor = activeUser.color || '#6366f1';
+        activeUserDot.style.boxShadow = `0 0 8px ${activeUser.color || '#6366f1'}`;
+    }
+    
+    if (btnDeleteActiveUser) {
+        btnDeleteActiveUser.style.display = (state.users || []).length > 1 ? 'inline-flex' : 'none';
+    }
 }
 
 // Update select inputs for transactions filter & adding expense
@@ -281,6 +350,7 @@ function setupEventListeners() {
     btnOpenExpenseModal.addEventListener('click', () => openModal(expenseModal));
     btnOpenCategoryModal.addEventListener('click', () => openModal(categoryModal));
     btnOpenSettingsModal.addEventListener('click', () => openModal(settingsModal));
+    if (btnOpenUserModal) btnOpenUserModal.addEventListener('click', () => openModal(userModal));
 
     document.getElementById('btn-close-expense-modal').addEventListener('click', () => closeModal(expenseModal));
     document.getElementById('btn-cancel-expense').addEventListener('click', () => closeModal(expenseModal));
@@ -294,8 +364,14 @@ function setupEventListeners() {
     document.getElementById('btn-close-settings-modal').addEventListener('click', () => closeModal(settingsModal));
     document.getElementById('btn-cancel-settings').addEventListener('click', () => closeModal(settingsModal));
 
+    const btnCloseUserModal = document.getElementById('btn-close-user-modal');
+    if (btnCloseUserModal) btnCloseUserModal.addEventListener('click', () => closeModal(userModal));
+    const btnCancelUser = document.getElementById('btn-cancel-user');
+    if (btnCancelUser) btnCancelUser.addEventListener('click', () => closeModal(userModal));
+
     // Handle clicking outside modal content to close it
-    [expenseModal, categoryModal, budgetModal, settingsModal].forEach(modal => {
+    [expenseModal, categoryModal, budgetModal, settingsModal, userModal].forEach(modal => {
+        if (!modal) return;
         modal.addEventListener('click', (e) => {
             if (e.target === modal) {
                 closeModal(modal);
@@ -308,6 +384,16 @@ function setupEventListeners() {
     document.getElementById('category-form').addEventListener('submit', handleAddCategory);
     document.getElementById('budget-form').addEventListener('submit', handleUpdateBudget);
     document.getElementById('settings-form').addEventListener('submit', handleUpdateSettings);
+    const userForm = document.getElementById('user-form');
+    if (userForm) userForm.addEventListener('submit', handleAddUser);
+
+    // User Switcher & User Delete Listeners
+    if (userSelectDropdown) {
+        userSelectDropdown.addEventListener('change', (e) => switchUser(e.target.value));
+    }
+    if (btnDeleteActiveUser) {
+        btnDeleteActiveUser.addEventListener('click', handleDeleteActiveUser);
+    }
 
     // Month Switcher Listeners
     btnPrevMonth.addEventListener('click', () => navigateMonth(-1));
@@ -363,7 +449,113 @@ function openModal(modal) {
 }
 
 function closeModal(modal) {
-    modal.classList.remove('active');
+    if (modal) modal.classList.remove('active');
+}
+
+// User Switching Handler
+async function switchUser(userId) {
+    if (!userId || userId === state.activeUserId) return;
+    state.activeUserId = userId;
+    saveStateToLocalStorage();
+    
+    categoriesGrid.innerHTML = `
+        <div class="empty-state" style="grid-column: 1 / -1;">
+            <div class="empty-icon">⏳</div>
+            <div>טוען נתוני משתמש...</div>
+        </div>`;
+        
+    await loadStateFromServer();
+    updateSelectors();
+    renderApp();
+}
+
+// Create New User Profile Handler
+async function handleAddUser(e) {
+    e.preventDefault();
+    const nameInput = document.getElementById('user-name');
+    const name = nameInput ? nameInput.value.trim() : '';
+    if (!name) {
+        alert('נא להזין שם משתמש תקין.');
+        return;
+    }
+
+    const payload = {
+        name,
+        color: selectedUserColorObj.hex
+    };
+
+    try {
+        const res = await fetch('/api/users', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+        if (!res.ok) throw new Error('API create user failed');
+        const newUser = await res.json();
+        
+        state.activeUserId = newUser.id;
+        if (nameInput) nameInput.value = '';
+        closeModal(userModal);
+        await loadStateFromServer();
+        updateSelectors();
+        renderApp();
+    } catch (err) {
+        console.error('Error creating user profile:', err);
+        // Fallback for offline mode
+        const newUser = {
+            id: 'user-' + Date.now(),
+            name,
+            color: selectedUserColorObj.hex
+        };
+        if (!state.users) state.users = [];
+        state.users.push(newUser);
+        state.activeUserId = newUser.id;
+        saveStateToLocalStorage();
+        if (nameInput) nameInput.value = '';
+        closeModal(userModal);
+        updateUserSelectorUI();
+        updateSelectors();
+        renderApp();
+    }
+}
+
+// Delete Active User Profile Handler
+async function handleDeleteActiveUser() {
+    if (!state.users || state.users.length <= 1) {
+        alert('לא ניתן למחוק את המשתמש היחיד במערכת.');
+        return;
+    }
+    
+    const activeUser = state.users.find(u => u.id === state.activeUserId);
+    const userName = activeUser ? activeUser.name : '';
+    
+    if (!confirm(`האם אתה בטוח שברצונך למחוק את הפרופיל "${userName}"?\nאזהרה: פעולה זו תמחק לצמיתות את כל הקטגוריות וההוצאות של משתמש זה!`)) {
+        return;
+    }
+
+    const deletedUserId = state.activeUserId;
+    try {
+        const res = await fetch(`/api/users/${deletedUserId}`, { method: 'DELETE' });
+        if (!res.ok) throw new Error('API delete user failed');
+        
+        state.users = state.users.filter(u => u.id !== deletedUserId);
+        state.activeUserId = state.users[0].id;
+        saveStateToLocalStorage();
+        await loadStateFromServer();
+        updateSelectors();
+        renderApp();
+    } catch (err) {
+        console.error('Error deleting user profile:', err);
+        // Fallback for offline mode
+        state.users = state.users.filter(u => u.id !== deletedUserId);
+        state.categories = state.categories.filter(c => c.userId !== deletedUserId);
+        state.expenses = state.expenses.filter(e => e.userId !== deletedUserId);
+        state.activeUserId = state.users[0].id;
+        saveStateToLocalStorage();
+        updateUserSelectorUI();
+        updateSelectors();
+        renderApp();
+    }
 }
 
 // Add Expense Form Handler
@@ -381,6 +573,7 @@ async function handleAddExpense(e) {
 
     const newExpense = {
         id: 'exp-' + Date.now(),
+        userId: state.activeUserId || 'user-default',
         amount,
         categoryId,
         date,
@@ -428,6 +621,7 @@ async function handleAddCategory(e) {
 
     const newCategory = {
         id: 'cat-' + Date.now(),
+        userId: state.activeUserId || 'user-default',
         name,
         icon: selectedEmoji,
         budget,
@@ -511,7 +705,7 @@ async function handleUpdateSettings(e) {
         const res = await fetch('/api/settings', {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ billingDay: day })
+            body: JSON.stringify({ userId: state.activeUserId || 'user-default', billingDay: day })
         });
         if (!res.ok) throw new Error('API update failed');
         
