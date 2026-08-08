@@ -56,21 +56,37 @@ const Category = mongoose.model('Category', CategorySchema);
 const Expense = mongoose.model('Expense', ExpenseSchema);
 const Setting = mongoose.model('Setting', SettingSchema);
 
-// Connect to MongoDB
-const dbUri = process.env.MONGODB_URI;
-if (!dbUri) {
-    console.error('ERROR: MONGODB_URI is not defined in the .env file.');
-    console.log('Please configure your MongoDB Atlas connection string in the .env file to run the server.');
-} else {
-    mongoose.connect(dbUri, { useNewUrlParser: true, useUnifiedTopology: true })
-        .then(() => {
-            console.log('Successfully connected to MongoDB.');
-            ensureDefaultUser();
-        })
-        .catch(err => {
-            console.error('MongoDB connection error:', err);
-        });
+// Connect to MongoDB (with serverless support for Vercel)
+const DEFAULT_MONGODB_URI = 'mongodb+srv://ronshenkman16_db_user:r31Zn1RuoH1aEL9e@cluster0.ifmh0bu.mongodb.net/finance_tracker?retryWrites=true&w=majority&appName=Cluster0';
+
+async function connectDB() {
+    if (mongoose.connection.readyState >= 1) {
+        return;
+    }
+    const dbUri = process.env.MONGODB_URI || DEFAULT_MONGODB_URI;
+    console.log('Connecting to MongoDB Atlas...');
+    await mongoose.connect(dbUri, { useNewUrlParser: true, useUnifiedTopology: true });
+    console.log('Successfully connected to MongoDB.');
+    await ensureDefaultUser();
 }
+
+// Initial connection attempt on cold start
+connectDB().catch(err => console.error('Initial MongoDB connection error:', err));
+
+// Serverless Middleware: Ensure DB is connected before handling any API request
+app.use('/api', async (req, res, next) => {
+    try {
+        await connectDB();
+        next();
+    } catch (err) {
+        console.error('API DB Connection Middleware Error:', err);
+        return res.status(500).json({
+            ok: false,
+            error: 'Database connection failed',
+            details: err.message
+        });
+    }
+});
 
 // Ensure default primary user profile & seed categories
 async function ensureDefaultUser() {
