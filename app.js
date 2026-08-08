@@ -231,14 +231,28 @@ const activePeriodLabel = document.getElementById('active-period-label');
 let selectedEmoji = EMOJIS[0];
 let selectedColorObj = COLORS[0];
 let selectedUserColorObj = COLORS[0];
+let datePickerInstance = null;
+
+// Initialize Flatpickr DatePicker (Hebrew Locale, DD/MM/YYYY Display)
+function initDatePicker() {
+    const el = document.getElementById('expense-date');
+    if (el && typeof flatpickr !== 'undefined') {
+        datePickerInstance = flatpickr(el, {
+            locale: 'he',
+            dateFormat: 'Y-m-d',
+            altInput: true,
+            altFormat: 'd/m/Y',
+            defaultDate: new Date(),
+            disableMobile: true
+        });
+    }
+}
 
 // Initialize application
 document.addEventListener('DOMContentLoaded', async () => {
     setupEventListeners();
     buildPickers();
-    
-    // Set default date in expense modal to today
-    document.getElementById('expense-date').value = new Date().toISOString().split('T')[0];
+    initDatePicker();
     
     // Show a loading text or indicator while fetching
     categoriesGrid.innerHTML = `
@@ -461,8 +475,12 @@ function openModal(modal) {
     if (modal === expenseModal) {
         document.getElementById('expense-amount').value = '';
         document.getElementById('expense-desc').value = '';
-        document.getElementById('expense-date').value = new Date().toISOString().split('T')[0];
-        updateDatePreview();
+        if (datePickerInstance) {
+            datePickerInstance.setDate(new Date(), true);
+        } else {
+            const expDateEl = document.getElementById('expense-date');
+            if (expDateEl) expDateEl.value = new Date().toISOString().split('T')[0];
+        }
     } else if (modal === categoryModal) {
         document.getElementById('category-name').value = '';
         document.getElementById('category-budget').value = '';
