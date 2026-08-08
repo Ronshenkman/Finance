@@ -38,13 +38,17 @@ function formatCurrency(amount) {
 
 // Helper: Format Date to DD/MM/YYYY
 function formatDate(dateString) {
+    if (!dateString) return '';
+    if (typeof dateString === 'string' && /^\d{4}-\d{2}-\d{2}/.test(dateString)) {
+        const parts = dateString.split('T')[0].split('-');
+        return `${parts[2]}/${parts[1]}/${parts[0]}`;
+    }
     const date = new Date(dateString);
-    if (isNaN(date)) return dateString;
-    return new Intl.DateTimeFormat('he-IL', {
-        day: '2-digit',
-        month: '2-digit',
-        year: 'numeric'
-    }).format(date);
+    if (isNaN(date.getTime())) return String(dateString);
+    const day = String(date.getDate()).padStart(2, '0');
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const year = date.getFullYear();
+    return `${day}/${month}/${year}`;
 }
 
 // Helper: Calculate Billing Period range (Start & End dates)
