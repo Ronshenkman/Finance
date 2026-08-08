@@ -143,21 +143,21 @@ async function seedCategoriesForUser(userId) {
     }
 }
 
-// --- API Endpoints ---
+// --- API Endpoints (Support both /api/path and /path for Vercel Serverless Rewrites) ---
 
 // Get all users
-app.get('/api/users', async (req, res) => {
+app.get(['/api/users', '/users'], async (req, res) => {
     try {
         const users = await User.find({}).sort({ createdAt: 1 });
         res.json(users);
     } catch (e) {
         console.error('Error fetching users:', e);
-        res.status(500).json({ error: 'Server error fetching users' });
+        res.status(500).json({ error: 'Server error fetching users', details: e.message });
     }
 });
 
 // Create new user profile
-app.post('/api/users', async (req, res) => {
+app.post(['/api/users', '/users'], async (req, res) => {
     try {
         const { name, color } = req.body;
         if (!name || !name.trim()) {
@@ -174,12 +174,12 @@ app.post('/api/users', async (req, res) => {
         res.status(201).json(newUser);
     } catch (e) {
         console.error('Error creating user:', e);
-        res.status(500).json({ error: 'Server error creating user' });
+        res.status(500).json({ error: 'Server error creating user', details: e.message });
     }
 });
 
 // Delete user profile and all associated data
-app.delete('/api/users/:id', async (req, res) => {
+app.delete(['/api/users/:id', '/users/:id'], async (req, res) => {
     try {
         const userId = req.params.id;
         const userCount = await User.countDocuments();
@@ -196,12 +196,12 @@ app.delete('/api/users/:id', async (req, res) => {
         res.json({ message: 'User and all associated data deleted successfully' });
     } catch (e) {
         console.error('Error deleting user:', e);
-        res.status(500).json({ error: 'Server error deleting user' });
+        res.status(500).json({ error: 'Server error deleting user', details: e.message });
     }
 });
 
 // Get initial scoped data for active user
-app.get('/api/init', async (req, res) => {
+app.get(['/api/init', '/init'], async (req, res) => {
     try {
         let users = await User.find({}).sort({ createdAt: 1 });
         if (users.length === 0) {
@@ -228,12 +228,12 @@ app.get('/api/init', async (req, res) => {
         res.json({ users, activeUserId, categories, expenses, billingDay });
     } catch (e) {
         console.error('Error fetching initial data:', e);
-        res.status(500).json({ error: 'Server error loading data' });
+        res.status(500).json({ error: 'Server error loading data', details: e.message });
     }
 });
 
 // Add new expense scoped to user
-app.post('/api/expenses', async (req, res) => {
+app.post(['/api/expenses', '/expenses'], async (req, res) => {
     try {
         const { id, userId, amount, categoryId, date, description } = req.body;
         const newExpense = new Expense({ id, userId: userId || 'user-default', amount, categoryId, date, description });
@@ -241,12 +241,12 @@ app.post('/api/expenses', async (req, res) => {
         res.status(201).json(newExpense);
     } catch (e) {
         console.error('Error adding expense:', e);
-        res.status(500).json({ error: 'Server error adding expense' });
+        res.status(500).json({ error: 'Server error adding expense', details: e.message });
     }
 });
 
 // Delete expense
-app.delete('/api/expenses/:id', async (req, res) => {
+app.delete(['/api/expenses/:id', '/expenses/:id'], async (req, res) => {
     try {
         const result = await Expense.findOneAndDelete({ id: req.params.id });
         if (!result) {
@@ -255,12 +255,12 @@ app.delete('/api/expenses/:id', async (req, res) => {
         res.json({ message: 'Expense deleted successfully' });
     } catch (e) {
         console.error('Error deleting expense:', e);
-        res.status(500).json({ error: 'Server error deleting expense' });
+        res.status(500).json({ error: 'Server error deleting expense', details: e.message });
     }
 });
 
 // Add new category scoped to user
-app.post('/api/categories', async (req, res) => {
+app.post(['/api/categories', '/categories'], async (req, res) => {
     try {
         const { id, userId, name, icon, budget, color, colorAlpha } = req.body;
         const newCategory = new Category({ id, userId: userId || 'user-default', name, icon, budget, color, colorAlpha });
@@ -268,12 +268,12 @@ app.post('/api/categories', async (req, res) => {
         res.status(201).json(newCategory);
     } catch (e) {
         console.error('Error adding category:', e);
-        res.status(500).json({ error: 'Server error adding category' });
+        res.status(500).json({ error: 'Server error adding category', details: e.message });
     }
 });
 
 // Update category budget
-app.put('/api/categories/:id', async (req, res) => {
+app.put(['/api/categories/:id', '/categories/:id'], async (req, res) => {
     try {
         const { budget } = req.body;
         const result = await Category.findOneAndUpdate(
@@ -287,12 +287,12 @@ app.put('/api/categories/:id', async (req, res) => {
         res.json(result);
     } catch (e) {
         console.error('Error updating category budget:', e);
-        res.status(500).json({ error: 'Server error updating category budget' });
+        res.status(500).json({ error: 'Server error updating category budget', details: e.message });
     }
 });
 
 // Delete category and cascade delete associated expenses
-app.delete('/api/categories/:id', async (req, res) => {
+app.delete(['/api/categories/:id', '/categories/:id'], async (req, res) => {
     try {
         const categoryId = req.params.id;
         const catResult = await Category.findOneAndDelete({ id: categoryId });
@@ -303,12 +303,12 @@ app.delete('/api/categories/:id', async (req, res) => {
         res.json({ message: 'Category and associated expenses deleted successfully' });
     } catch (e) {
         console.error('Error deleting category:', e);
-        res.status(500).json({ error: 'Server error deleting category' });
+        res.status(500).json({ error: 'Server error deleting category', details: e.message });
     }
 });
 
 // Update billing day setting scoped to user
-app.put('/api/settings', async (req, res) => {
+app.put(['/api/settings', '/settings'], async (req, res) => {
     try {
         const { userId, billingDay } = req.body;
         const targetUserId = userId || 'user-default';
@@ -320,12 +320,12 @@ app.put('/api/settings', async (req, res) => {
         res.json({ message: 'Settings updated successfully', billingDay: result.value });
     } catch (e) {
         console.error('Error updating billing settings:', e);
-        res.status(500).json({ error: 'Server error updating settings' });
+        res.status(500).json({ error: 'Server error updating settings', details: e.message });
     }
 });
 
 // DB Sync Status - verify all data is saved correctly
-app.get('/api/sync-status', async (req, res) => {
+app.get(['/api/sync-status', '/sync-status'], async (req, res) => {
     try {
         const userId = req.query.userId || 'user-default';
         const [userCount, categoryCount, expenseCount, settingDoc] = await Promise.all([
@@ -351,12 +351,17 @@ app.get('/api/sync-status', async (req, res) => {
         });
     } catch (e) {
         console.error('Error fetching sync status:', e);
-        res.status(500).json({ ok: false, error: 'DB connection error' });
+        res.status(500).json({ ok: false, error: 'DB connection error', details: e.message });
     }
 });
 
-// Serve frontend on any non-API route
+// Serve frontend on non-API routes ONLY
 app.get('*', (req, res) => {
+    const isApiRequest = req.path.startsWith('/api') || 
+                         ['/sync-status', '/init', '/expenses', '/categories', '/users', '/settings'].some(p => req.path.startsWith(p));
+    if (isApiRequest) {
+        return res.status(404).json({ ok: false, error: `API route not found: ${req.method} ${req.path}` });
+    }
     res.sendFile(path.join(__dirname, 'index.html'));
 });
 

@@ -803,10 +803,16 @@ async function handleSyncDB() {
     try {
         const userId = state.activeUserId || 'user-default';
         const res = await fetch(`/api/sync-status?userId=${encodeURIComponent(userId)}`);
-        const data = await res.json().catch(() => ({}));
+        
+        let data = null;
+        try {
+            data = await res.json();
+        } catch (jsonErr) {
+            throw new Error(`תגובת השרת אינה JSON תקין (סטטוס ${res.status})`);
+        }
 
-        if (!res.ok || !data.ok) {
-            const detailMsg = data.details || data.error || `HTTP Status ${res.status}`;
+        if (!res.ok || !data || !data.ok) {
+            const detailMsg = (data && (data.details || data.error)) ? (data.details || data.error) : `שגיאת שרת (${res.status})`;
             throw new Error(detailMsg);
         }
 
@@ -842,8 +848,7 @@ async function handleSyncDB() {
         label.textContent = 'שגיאה';
         showToast('error', `
             <div class="sync-toast-title">❌ שגיאה בחיבור ל-DB</div>
-            <div style="color: #fca5a5; font-size: 13px; margin-top: 4px; word-break: break-word;">פירוט השגיאה: ${err.message || 'שגיאת התחברות'}</div>
-            <div style="color: var(--text-secondary); font-size: 12px; margin-top: 6px;">ודא שרת פעיל ובדוק הרשאות IP ב-MongoDB Atlas (Network Access -> 0.0.0.0/0).</div>
+            <div style="color: #fca5a5; font-size: 13px; margin-top: 4px; word-break: break-word;">${err.message || 'שגיאת התחברות'}</div>
         `, 8000);
         setTimeout(() => {
             btn.classList.remove('sync-error');
