@@ -414,6 +414,13 @@ function setupEventListeners() {
     filterCategory.addEventListener('change', renderTransactions);
     searchTx.addEventListener('input', renderTransactions);
 
+    // Expense date change preview
+    const expenseDateEl = document.getElementById('expense-date');
+    if (expenseDateEl) {
+        expenseDateEl.addEventListener('input', updateDatePreview);
+        expenseDateEl.addEventListener('change', updateDatePreview);
+    }
+
     // Chart Tabs
     document.querySelectorAll('.chart-tab-btn').forEach(btn => {
         btn.addEventListener('click', (e) => {
@@ -435,6 +442,19 @@ function navigateMonth(direction) {
     renderApp();
 }
 
+function updateDatePreview() {
+    const expenseDateInput = document.getElementById('expense-date');
+    const preview = document.getElementById('expense-date-preview');
+    if (expenseDateInput && preview) {
+        const val = expenseDateInput.value;
+        if (val) {
+            preview.textContent = `📅 תאריך נבחר: ${formatDate(val)}`;
+        } else {
+            preview.textContent = '';
+        }
+    }
+}
+
 function openModal(modal) {
     modal.classList.add('active');
     // For expense modal, reset form fields but keep date as today
@@ -442,6 +462,7 @@ function openModal(modal) {
         document.getElementById('expense-amount').value = '';
         document.getElementById('expense-desc').value = '';
         document.getElementById('expense-date').value = new Date().toISOString().split('T')[0];
+        updateDatePreview();
     } else if (modal === categoryModal) {
         document.getElementById('category-name').value = '';
         document.getElementById('category-budget').value = '';
