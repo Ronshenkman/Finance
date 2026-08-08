@@ -398,6 +398,10 @@ function setupEventListeners() {
         btnDeleteActiveUser.addEventListener('click', handleDeleteActiveUser);
     }
 
+    // Sync DB Button
+    const btnSyncDb = document.getElementById('btn-sync-db');
+    if (btnSyncDb) btnSyncDb.addEventListener('click', handleSyncDB);
+
     // Month Switcher Listeners
     btnPrevMonth.addEventListener('click', () => navigateMonth(-1));
     btnNextMonth.addEventListener('click', () => navigateMonth(1));
@@ -740,6 +744,73 @@ async function handleUpdateSettings(e) {
         closeModal(settingsModal);
         renderApp();
     }
+}
+
+// ─── Sync DB Handler ────────────────────────────────────────────────
+async function handleSyncDB() {
+    const btn = document.getElementById('btn-sync-db');
+    const icon = document.getElementById('sync-icon');
+    const label = document.getElementById('sync-label');
+
+    btn.classList.add('syncing');
+    btn.classList.remove('sync-error');
+    icon.textContent = '⏳';
+    label.textContent = 'בודק...';
+
+    try {
+        const userId = state.activeUserId || 'user-default';
+        const res = await fetch(`/api/sync-status?userId=${encodeURIComponent(userId)}`);
+        if (!res.ok) throw new Error('sync check failed');
+        const data = await res.json();
+
+        // Success state
+        btn.classList.remove('syncing');
+        icon.textContent = '✅';
+        label.textContent = 'מסונכרן';
+
+        const userObj = state.users.find(u => u.id === userId);
+        const userName = userObj ? userObj.name : userId;
+        const time = new Date(data.timestamp).toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+
+        showToast('success', `
+            <div class="sync-toast-title">✅ הכל שמור ב-MongoDB Atlas</div>
+            <div class="sync-toast-row"><span>👤 משתמש פעיל</span><span class="sync-toast-val">${userName}</span></div>
+            <div class="sync-toast-row"><span>👥 סה"כ פרופילים</span><span class="sync-toast-val">${data.users}</span></div>
+            <div class="sync-toast-row"><span>🗂️ קטגוריות שמורות</span><span class="sync-toast-val">${data.categories}</span></div>
+            <div class="sync-toast-row"><span>💸 הוצאות שמורות</span><span class="sync-toast-val">${data.expenses}</span></div>
+            <div class="sync-toast-row"><span>📅 יום חיוב</span><span class="sync-toast-val">${data.billingDay}</span></div>
+            <div class="sync-toast-row"><span>🕐 נבדק בשעה</span><span class="sync-toast-val">${time}</span></div>
+        `, 6000);
+
+        // Reset button text after 3 seconds
+        setTimeout(() => {
+            icon.textContent = '☁️';
+            label.textContent = 'בדוק DB';
+        }, 3000);
+
+    } catch (err) {
+        btn.classList.remove('syncing');
+        btn.classList.add('sync-error');
+        icon.textContent = '❌';
+        label.textContent = 'שגיאה';
+        showToast('error', `<div class="sync-toast-title">❌ שגיאה בחיבור ל-DB</div><div style="color: var(--text-secondary);">לא ניתן להתחבר ל-MongoDB Atlas. בדוק את החיבור לאינטרנט.</div>`, 5000);
+        setTimeout(() => {
+            btn.classList.remove('sync-error');
+            icon.textContent = '☁️';
+            label.textContent = 'בדוק DB';
+        }, 5000);
+    }
+}
+
+function showToast(type, html, durationMs = 5000) {
+    const toast = document.getElementById('sync-toast');
+    toast.className = `sync-toast toast-${type}`;
+    toast.innerHTML = html;
+    toast.style.display = 'block';
+    clearTimeout(toast._hideTimeout);
+    toast._hideTimeout = setTimeout(() => {
+        toast.style.display = 'none';
+    }, durationMs);
 }
 
 // Delete Expense Handler

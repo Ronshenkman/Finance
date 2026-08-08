@@ -36,6 +36,10 @@
                 <button class="btn btn-secondary btn-icon" id="btn-open-settings-modal" title="הגדרות מחזור חיוב">
                     <span>⚙️</span>
                 </button>
+                <button class="btn btn-sync" id="btn-sync-db" title="בדוק שמירה ב-DB">
+                    <span id="sync-icon">☁️</span>
+                    <span id="sync-label">בדוק DB</span>
+                </button>
                 <button class="btn btn-secondary" id="btn-open-category-modal">
                     <span>➕ קטגוריה חדשה</span>
                 </button>
@@ -44,6 +48,9 @@
                 </button>
             </div>
         </header>
+
+        <!-- Toast Notification -->
+        <div id="sync-toast" class="sync-toast" style="display:none;"></div>
 
         <!-- Month Switcher & Billing Period Info -->
         <div class="month-switcher-bar glass-card">

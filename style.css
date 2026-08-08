@@ -892,3 +892,97 @@ h1 {
     background-color: var(--bg-secondary);
     color: var(--text-primary);
 }
+
+/* ─── Sync Button ─────────────────────────────── */
+.btn-sync {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: rgba(16, 185, 129, 0.12);
+    border: 1px solid rgba(16, 185, 129, 0.35);
+    color: #10b981;
+    padding: 8px 14px;
+    border-radius: var(--border-radius-md);
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: var(--transition-smooth);
+    white-space: nowrap;
+}
+
+.btn-sync:hover {
+    background: rgba(16, 185, 129, 0.22);
+    border-color: #10b981;
+    box-shadow: 0 0 12px rgba(16, 185, 129, 0.25);
+}
+
+.btn-sync.syncing {
+    opacity: 0.7;
+    cursor: wait;
+}
+
+.btn-sync.sync-error {
+    background: rgba(244, 63, 94, 0.12);
+    border-color: rgba(244, 63, 94, 0.4);
+    color: #f43f5e;
+}
+
+/* ─── Toast Notification ──────────────────────── */
+.sync-toast {
+    position: fixed;
+    bottom: 28px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 9999;
+    min-width: 320px;
+    max-width: 480px;
+    background: #1a1f35;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 14px;
+    padding: 18px 22px;
+    box-shadow: 0 8px 40px rgba(0,0,0,0.5);
+    animation: toastSlideUp 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+    font-size: 14px;
+    line-height: 1.6;
+}
+
+.sync-toast.toast-success {
+    border-color: rgba(16, 185, 129, 0.4);
+    background: linear-gradient(135deg, #0f1f1a 0%, #1a1f35 100%);
+}
+
+.sync-toast.toast-error {
+    border-color: rgba(244, 63, 94, 0.4);
+    background: linear-gradient(135deg, #1f0f14 0%, #1a1f35 100%);
+}
+
+.sync-toast-title {
+    font-size: 15px;
+    font-weight: 700;
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.sync-toast-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 5px 0;
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+    color: var(--text-secondary);
+}
+
+.sync-toast-row:last-child {
+    border-bottom: none;
+}
+
+.sync-toast-val {
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+@keyframes toastSlideUp {
+    from { opacity: 0; transform: translateX(-50%) translateY(20px); }
+    to   { opacity: 1; transform: translateX(-50%) translateY(0); }
+}

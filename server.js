@@ -308,6 +308,37 @@ app.put('/api/settings', async (req, res) => {
     }
 });
 
+// DB Sync Status - verify all data is saved correctly
+app.get('/api/sync-status', async (req, res) => {
+    try {
+        const userId = req.query.userId || 'user-default';
+        const [userCount, categoryCount, expenseCount, settingDoc] = await Promise.all([
+            User.countDocuments(),
+            Category.countDocuments({ userId }),
+            Expense.countDocuments({ userId }),
+            Setting.findOne({ userId, key: 'billingDay' })
+        ]);
+        const totalExpenses = await Expense.aggregate([
+            { $match: { userId } },
+            { $group: { _id: null, total: { $sum: '$amount' } } }
+        ]);
+        res.json({
+            ok: true,
+            userId,
+            db: 'MongoDB Atlas',
+            users: userCount,
+            categories: categoryCount,
+            expenses: expenseCount,
+            totalAmount: totalExpenses[0]?.total || 0,
+            billingDay: settingDoc?.value || 1,
+            timestamp: new Date().toISOString()
+        });
+    } catch (e) {
+        console.error('Error fetching sync status:', e);
+        res.status(500).json({ ok: false, error: 'DB connection error' });
+    }
+});
+
 // Serve frontend on any non-API route
 app.get('*', (req, res) => {
     res.sendFile(path.join(__dirname, 'index.html'));
