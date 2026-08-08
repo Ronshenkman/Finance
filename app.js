@@ -176,7 +176,10 @@ async function loadStateFromServer() {
         state.categories = data.categories || [];
         state.expenses = data.expenses || [];
         state.billingDay = data.billingDay || 1;
-        state.currentAnchorDate = new Date().toISOString(); // Default to current date on load
+        // Preserve user's current month navigation - only reset on first load
+        if (!state.currentAnchorDate) {
+            state.currentAnchorDate = new Date().toISOString();
+        }
         
         updateUserSelectorUI();
         saveStateToLocalStorage();
@@ -601,15 +604,20 @@ async function handleAddExpense(e) {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(newExpense)
         });
-        if (!res.ok) throw new Error('API save failed');
+        if (!res.ok) {
+            const errBody = await res.text();
+            console.error('API save failed:', errBody);
+            throw new Error('API save failed');
+        }
         
-        state.expenses.push(newExpense);
-        saveStateToLocalStorage();
+        // Reload fresh from server to ensure UI matches DB
         closeModal(expenseModal);
+        await loadStateFromServer();
+        updateSelectors();
         renderApp();
     } catch (err) {
         console.error('Error saving expense to server:', err);
-        // Fallback for offline mode
+        // Fallback for offline mode - push locally
         state.expenses.push(newExpense);
         saveStateToLocalStorage();
         closeModal(expenseModal);
@@ -958,7 +966,8 @@ function renderTransactions() {
     // Filter logic
     let filtered = getActiveExpenses().filter(exp => {
         const categoryMatch = filterVal === 'all' || exp.categoryId === filterVal;
-        const descriptionMatch = exp.description.toLowerCase().includes(searchVal);
+        const desc = (exp.description || '').toLowerCase();
+        const descriptionMatch = !searchVal || desc.includes(searchVal);
         return categoryMatch && descriptionMatch;
     });
 
