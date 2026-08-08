@@ -803,8 +803,12 @@ async function handleSyncDB() {
     try {
         const userId = state.activeUserId || 'user-default';
         const res = await fetch(`/api/sync-status?userId=${encodeURIComponent(userId)}`);
-        if (!res.ok) throw new Error('sync check failed');
-        const data = await res.json();
+        const data = await res.json().catch(() => ({}));
+
+        if (!res.ok || !data.ok) {
+            const detailMsg = data.details || data.error || `HTTP Status ${res.status}`;
+            throw new Error(detailMsg);
+        }
 
         // Success state
         btn.classList.remove('syncing');
@@ -836,7 +840,11 @@ async function handleSyncDB() {
         btn.classList.add('sync-error');
         icon.textContent = '❌';
         label.textContent = 'שגיאה';
-        showToast('error', `<div class="sync-toast-title">❌ שגיאה בחיבור ל-DB</div><div style="color: var(--text-secondary);">לא ניתן להתחבר ל-MongoDB Atlas. בדוק את החיבור לאינטרנט.</div>`, 5000);
+        showToast('error', `
+            <div class="sync-toast-title">❌ שגיאה בחיבור ל-DB</div>
+            <div style="color: #fca5a5; font-size: 13px; margin-top: 4px; word-break: break-word;">פירוט השגיאה: ${err.message || 'שגיאת התחברות'}</div>
+            <div style="color: var(--text-secondary); font-size: 12px; margin-top: 6px;">ודא שרת פעיל ובדוק הרשאות IP ב-MongoDB Atlas (Network Access -> 0.0.0.0/0).</div>
+        `, 8000);
         setTimeout(() => {
             btn.classList.remove('sync-error');
             icon.textContent = '☁️';
