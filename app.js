@@ -146,6 +146,10 @@ function saveStateToLocalStorage() {
     localStorage.setItem('finance_tracker_github', JSON.stringify(state));
 }
 
+function saveState() {
+    saveStateToLocalStorage();
+}
+
 // Fetch Initial Data from Server
 async function loadStateFromServer() {
     try {
@@ -319,7 +323,7 @@ function setupEventListeners() {
             document.querySelectorAll('.chart-tab-btn').forEach(b => b.classList.remove('active'));
             btn.classList.add('active');
             state.activeChartType = btn.dataset.chart;
-            saveState();
+            saveStateToLocalStorage();
             renderCharts();
         });
     });
@@ -327,9 +331,10 @@ function setupEventListeners() {
 
 function navigateMonth(direction) {
     const current = new Date(state.currentAnchorDate);
+    current.setDate(15); // Use mid-month date to avoid day overflow when switching months (e.g. Aug 31 -> Feb)
     current.setMonth(current.getMonth() + direction);
     state.currentAnchorDate = current.toISOString();
-    saveState();
+    saveStateToLocalStorage();
     renderApp();
 }
 
