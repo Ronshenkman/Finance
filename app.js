@@ -660,9 +660,8 @@ async function handleAddCategory(e) {
         });
         if (!res.ok) throw new Error('API save failed');
         
-        state.categories.push(newCategory);
-        saveStateToLocalStorage();
         closeModal(categoryModal);
+        await loadStateFromServer();
         updateSelectors();
         renderApp();
     } catch (err) {
@@ -695,13 +694,10 @@ async function handleUpdateBudget(e) {
         });
         if (!res.ok) throw new Error('API update failed');
         
-        const catIndex = state.categories.findIndex(c => c.id === categoryId);
-        if (catIndex !== -1) {
-            state.categories[catIndex].budget = newBudget;
-            saveStateToLocalStorage();
-            closeModal(budgetModal);
-            renderApp();
-        }
+        closeModal(budgetModal);
+        await loadStateFromServer();
+        updateSelectors();
+        renderApp();
     } catch (err) {
         console.error('Error updating budget to server:', err);
         // Fallback for offline mode
@@ -755,8 +751,8 @@ async function deleteExpense(expenseId) {
             });
             if (!res.ok) throw new Error('API delete failed');
             
-            state.expenses = state.expenses.filter(exp => exp.id !== expenseId);
-            saveStateToLocalStorage();
+            await loadStateFromServer();
+            updateSelectors();
             renderApp();
         } catch (err) {
             console.error('Error deleting expense from server:', err);
@@ -780,9 +776,7 @@ async function deleteCategory(categoryId) {
             });
             if (!res.ok) throw new Error('API delete failed');
             
-            state.categories = state.categories.filter(c => c.id !== categoryId);
-            state.expenses = state.expenses.filter(e => e.categoryId !== categoryId);
-            saveStateToLocalStorage();
+            await loadStateFromServer();
             updateSelectors();
             renderApp();
         } catch (err) {
