@@ -678,11 +678,18 @@ h1 {
     transition: var(--transition-smooth);
 }
 
+/* Fix select dropdown options - dark bg + light text so they're readable */
+.form-control option {
+    background-color: #1e2130;
+    color: #e2e8f0;
+}
+
 .form-control:focus {
     border-color: var(--accent-indigo);
     background: rgba(255, 255, 255, 0.08);
     box-shadow: 0 0 10px rgba(99, 102, 241, 0.15);
 }
+
 
 .form-row {
     display: grid;
