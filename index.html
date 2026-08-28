@@ -238,22 +238,38 @@
         </div>
     </div>
 
-    <!-- MODAL: Edit Budget Goal -->
+    <!-- MODAL: Edit Category -->
     <div class="modal-overlay" id="budget-modal">
         <div class="modal-content">
             <div class="modal-header">
-                <h3 class="modal-title" id="budget-modal-title">עדכון יעד תקציב</h3>
+                <h3 class="modal-title" id="budget-modal-title">עריכת קטגוריה</h3>
                 <button type="button" class="btn-close" id="btn-close-budget-modal">&times;</button>
             </div>
             <form id="budget-form">
                 <input type="hidden" id="edit-budget-category-id">
                 <div class="form-group">
-                    <label class="form-label" for="edit-category-budget">יעד תקציב חודשי חדש (₪)</label>
+                    <label class="form-label" for="edit-category-name">שם הקטגוריה</label>
+                    <input type="text" class="form-control" id="edit-category-name" placeholder="שם הקטגוריה..." required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="edit-category-budget">יעד תקציב חודשי (₪)</label>
                     <input type="number" min="0" class="form-control" id="edit-category-budget" placeholder="1000" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">בחר אייקון (אמוג'י)</label>
+                    <div class="picker-grid" id="edit-icon-picker">
+                        <!-- Populated by JS -->
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">בחר צבע נושא</label>
+                    <div class="picker-grid" id="edit-color-picker" style="grid-template-columns: repeat(7, 1fr);">
+                        <!-- Populated by JS -->
+                    </div>
                 </div>
                 <div class="form-actions">
                     <button type="button" class="btn btn-secondary btn-cancel" id="btn-cancel-budget">ביטול</button>
-                    <button type="submit" class="btn btn-primary">עדכן תקציב</button>
+                    <button type="submit" class="btn btn-primary" id="btn-submit-category-edit">שמור שינויים</button>
                 </div>
             </form>
         </div>

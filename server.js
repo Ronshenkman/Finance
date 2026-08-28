@@ -298,13 +298,20 @@ app.post(['/api/categories', '/categories'], async (req, res) => {
     }
 });
 
-// Update category budget
+// Update category (name, budget, icon, color, colorAlpha)
 app.put(['/api/categories/:id', '/categories/:id'], async (req, res) => {
     try {
-        const { budget } = req.body;
+        const { name, budget, icon, color, colorAlpha } = req.body;
+        const updateFields = {};
+        if (name !== undefined && name.trim()) updateFields.name = name.trim();
+        if (budget !== undefined && !isNaN(budget)) updateFields.budget = budget;
+        if (icon !== undefined) updateFields.icon = icon;
+        if (color !== undefined) updateFields.color = color;
+        if (colorAlpha !== undefined) updateFields.colorAlpha = colorAlpha;
+
         const result = await Category.findOneAndUpdate(
             { id: req.params.id },
-            { budget },
+            updateFields,
             { new: true }
         );
         if (!result) {
@@ -312,8 +319,8 @@ app.put(['/api/categories/:id', '/categories/:id'], async (req, res) => {
         }
         res.json(result);
     } catch (e) {
-        console.error('Error updating category budget:', e);
-        res.status(500).json({ error: 'Server error updating category budget', details: e.message });
+        console.error('Error updating category:', e);
+        res.status(500).json({ error: 'Server error updating category', details: e.message });
     }
 });
 

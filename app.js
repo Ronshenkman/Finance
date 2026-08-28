@@ -231,6 +231,8 @@ const activePeriodLabel = document.getElementById('active-period-label');
 // Selected items in custom category & user forms
 let selectedEmoji = EMOJIS[0];
 let selectedColorObj = COLORS[0];
+let selectedEditEmoji = EMOJIS[0];
+let selectedEditColorObj = COLORS[0];
 let selectedUserColorObj = COLORS[0];
 let datePickerInstance = null;
 
@@ -267,36 +269,75 @@ document.addEventListener('DOMContentLoaded', async () => {
     renderApp();
 });
 
-// Setup Form Pickers (Emoji, Colors & User Colors)
+// Setup Form Pickers (Emoji, Colors, Edit Category Pickers & User Colors)
 function buildPickers() {
     const iconPicker = document.getElementById('icon-picker');
-    iconPicker.innerHTML = '';
-    EMOJIS.forEach((emoji, index) => {
-        const item = document.createElement('div');
-        item.className = 'picker-item' + (index === 0 ? ' selected' : '');
-        item.textContent = emoji;
-        item.addEventListener('click', () => {
-            document.querySelectorAll('#icon-picker .picker-item').forEach(el => el.classList.remove('selected'));
-            item.classList.add('selected');
-            selectedEmoji = emoji;
+    if (iconPicker) {
+        iconPicker.innerHTML = '';
+        EMOJIS.forEach((emoji, index) => {
+            const item = document.createElement('div');
+            item.className = 'picker-item' + (index === 0 ? ' selected' : '');
+            item.textContent = emoji;
+            item.addEventListener('click', () => {
+                document.querySelectorAll('#icon-picker .picker-item').forEach(el => el.classList.remove('selected'));
+                item.classList.add('selected');
+                selectedEmoji = emoji;
+            });
+            iconPicker.appendChild(item);
         });
-        iconPicker.appendChild(item);
-    });
+    }
+
+    const editIconPicker = document.getElementById('edit-icon-picker');
+    if (editIconPicker) {
+        editIconPicker.innerHTML = '';
+        EMOJIS.forEach((emoji, index) => {
+            const item = document.createElement('div');
+            item.className = 'picker-item' + (index === 0 ? ' selected' : '');
+            item.textContent = emoji;
+            item.addEventListener('click', () => {
+                document.querySelectorAll('#edit-icon-picker .picker-item').forEach(el => el.classList.remove('selected'));
+                item.classList.add('selected');
+                selectedEditEmoji = emoji;
+            });
+            editIconPicker.appendChild(item);
+        });
+    }
 
     const colorPicker = document.getElementById('color-picker');
-    colorPicker.innerHTML = '';
-    COLORS.forEach((color, index) => {
-        const dot = document.createElement('div');
-        dot.className = 'color-dot' + (index === 0 ? ' selected' : '');
-        dot.style.backgroundColor = color.hex;
-        dot.style.setProperty('--dot-color', color.hex);
-        dot.addEventListener('click', () => {
-            document.querySelectorAll('#color-picker .color-dot').forEach(el => el.classList.remove('selected'));
-            dot.classList.add('selected');
-            selectedColorObj = color;
+    if (colorPicker) {
+        colorPicker.innerHTML = '';
+        COLORS.forEach((color, index) => {
+            const dot = document.createElement('div');
+            dot.className = 'color-dot' + (index === 0 ? ' selected' : '');
+            dot.style.backgroundColor = color.hex;
+            dot.style.setProperty('--dot-color', color.hex);
+            dot.dataset.hex = color.hex;
+            dot.addEventListener('click', () => {
+                document.querySelectorAll('#color-picker .color-dot').forEach(el => el.classList.remove('selected'));
+                dot.classList.add('selected');
+                selectedColorObj = color;
+            });
+            colorPicker.appendChild(dot);
         });
-        colorPicker.appendChild(dot);
-    });
+    }
+
+    const editColorPicker = document.getElementById('edit-color-picker');
+    if (editColorPicker) {
+        editColorPicker.innerHTML = '';
+        COLORS.forEach((color, index) => {
+            const dot = document.createElement('div');
+            dot.className = 'color-dot' + (index === 0 ? ' selected' : '');
+            dot.style.backgroundColor = color.hex;
+            dot.style.setProperty('--dot-color', color.hex);
+            dot.dataset.hex = color.hex;
+            dot.addEventListener('click', () => {
+                document.querySelectorAll('#edit-color-picker .color-dot').forEach(el => el.classList.remove('selected'));
+                dot.classList.add('selected');
+                selectedEditColorObj = color;
+            });
+            editColorPicker.appendChild(dot);
+        });
+    }
 
     const userColorPicker = document.getElementById('user-color-picker');
     if (userColorPicker) {
@@ -777,22 +818,38 @@ async function handleAddCategory(e) {
     }
 }
 
-// Update Budget Form Handler
+// Update Category (Name, Budget, Icon, Color) Form Handler
 async function handleUpdateBudget(e) {
     e.preventDefault();
     const categoryId = document.getElementById('edit-budget-category-id').value;
+    const name = document.getElementById('edit-category-name').value.trim();
     const newBudget = parseFloat(document.getElementById('edit-category-budget').value);
 
-    if (isNaN(newBudget) || newBudget < 0) {
-        alert('נא להזין תקציב תקין.');
+    if (!name || isNaN(newBudget) || newBudget < 0) {
+        alert('נא להזין שם קטגוריה ותקציב תקינים.');
         return;
     }
+
+    // Check duplicate name with other categories for the active user
+    const duplicate = state.categories.some(cat => cat.id !== categoryId && cat.name.trim().toLowerCase() === name.toLowerCase());
+    if (duplicate) {
+        alert('קטגוריה אחרת בשם זה כבר קיימת.');
+        return;
+    }
+
+    const payload = {
+        name,
+        budget: newBudget,
+        icon: selectedEditEmoji || '🏷️',
+        color: selectedEditColorObj.hex,
+        colorAlpha: selectedEditColorObj.alpha
+    };
 
     try {
         const res = await fetch(`/api/categories/${categoryId}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ budget: newBudget })
+            body: JSON.stringify(payload)
         });
         if (!res.ok) throw new Error('API update failed');
         
@@ -801,13 +858,14 @@ async function handleUpdateBudget(e) {
         updateSelectors();
         renderApp();
     } catch (err) {
-        console.error('Error updating budget to server:', err);
+        console.error('Error updating category to server:', err);
         // Fallback for offline mode
         const catIndex = state.categories.findIndex(c => c.id === categoryId);
         if (catIndex !== -1) {
-            state.categories[catIndex].budget = newBudget;
+            state.categories[catIndex] = { ...state.categories[catIndex], ...payload };
             saveStateToLocalStorage();
             closeModal(budgetModal);
+            updateSelectors();
             renderApp();
         }
     }
@@ -973,15 +1031,44 @@ async function deleteCategory(categoryId) {
     }
 }
 
-// Open Inline Edit Budget Modal
-function openEditBudgetModal(categoryId) {
+// Open Edit Category Modal (Name, Budget, Icon, Color)
+function openEditCategoryModal(categoryId) {
     const category = state.categories.find(c => c.id === categoryId);
     if (!category) return;
 
     document.getElementById('edit-budget-category-id').value = categoryId;
+    document.getElementById('edit-category-name').value = category.name;
     document.getElementById('edit-category-budget').value = category.budget;
-    document.getElementById('budget-modal-title').textContent = `עדכון יעד תקציב עבור ${category.icon} ${category.name}`;
+    document.getElementById('budget-modal-title').textContent = `עריכת קטגוריה: ${category.icon} ${category.name}`;
+
+    selectedEditEmoji = category.icon || EMOJIS[0];
+    const matchingColor = COLORS.find(c => c.hex.toLowerCase() === (category.color || '').toLowerCase()) || COLORS[0];
+    selectedEditColorObj = matchingColor;
+
+    // Highlight selected emoji in edit picker
+    document.querySelectorAll('#edit-icon-picker .picker-item').forEach(el => {
+        if (el.textContent === selectedEditEmoji) {
+            el.classList.add('selected');
+        } else {
+            el.classList.remove('selected');
+        }
+    });
+
+    // Highlight selected color in edit picker
+    document.querySelectorAll('#edit-color-picker .color-dot').forEach(el => {
+        if (el.dataset.hex === selectedEditColorObj.hex || el.style.backgroundColor === selectedEditColorObj.hex) {
+            el.classList.add('selected');
+        } else {
+            el.classList.remove('selected');
+        }
+    });
+
     openModal(budgetModal);
+}
+
+// Alias for backwards compatibility
+function openEditBudgetModal(categoryId) {
+    openEditCategoryModal(categoryId);
 }
 
 // Main Render Loop
@@ -1094,16 +1181,19 @@ function renderCategoryCards() {
 
         card.innerHTML = `
             <div class="category-header">
-                <div class="category-title-icon">
+                <div class="category-title-icon" style="cursor: pointer;" onclick="window.triggerEditCategory('${cat.id}')" title="לחץ לעריכת קטגוריה">
                     <div class="category-icon">${cat.icon}</div>
                     <div>
                         <div class="category-name">${cat.name}</div>
-                        <div class="category-budget-limit">יעד חודשי: <span style="cursor: pointer; text-decoration: underline;" onclick="window.triggerEditBudget('${cat.id}')">${formatCurrency(cat.budget)}</span></div>
+                        <div class="category-budget-limit">יעד חודשי: <span style="text-decoration: underline;">${formatCurrency(cat.budget)}</span></div>
                     </div>
                 </div>
                 <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 8px;">
                     <span class="status-badge ${statusClass}">${statusText}</span>
-                    <button class="btn-danger-link btn-icon btn-close" style="font-size: 13px; width: 24px; height: 24px;" onclick="window.triggerDeleteCategory('${cat.id}')" title="מחק קטגוריה">🗑️</button>
+                    <div style="display: flex; gap: 4px; align-items: center;">
+                        <button class="btn-edit-action" style="font-size: 13px; width: 26px; height: 26px; display: inline-flex; align-items: center; justify-content: center;" onclick="window.triggerEditCategory('${cat.id}')" title="ערוך קטגוריה">✏️</button>
+                        <button class="btn-danger-link btn-icon btn-close" style="font-size: 13px; width: 24px; height: 24px;" onclick="window.triggerDeleteCategory('${cat.id}')" title="מחק קטגוריה">🗑️</button>
+                    </div>
                 </div>
             </div>
             <div class="category-budget-numbers">
@@ -1125,8 +1215,12 @@ function renderCategoryCards() {
 }
 
 // Expose click functions to global window scope safely for inline elements
+window.triggerEditCategory = function(categoryId) {
+    openEditCategoryModal(categoryId);
+};
+
 window.triggerEditBudget = function(categoryId) {
-    openEditBudgetModal(categoryId);
+    openEditCategoryModal(categoryId);
 };
 
 window.triggerDeleteCategory = function(categoryId) {
