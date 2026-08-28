@@ -565,6 +565,48 @@ h1 {
     color: var(--text-secondary);
 }
 
+.tx-actions {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    white-space: nowrap;
+}
+
+.btn-edit-action {
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    font-size: 14px;
+    padding: 4px 6px;
+    border-radius: 6px;
+    transition: var(--transition-smooth);
+    opacity: 0.75;
+}
+
+.btn-edit-action:hover {
+    background: rgba(99, 102, 241, 0.15);
+    opacity: 1;
+    transform: scale(1.1);
+}
+
+.btn-delete-action {
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    font-size: 14px;
+    padding: 4px 6px;
+    border-radius: 6px;
+    transition: var(--transition-smooth);
+    opacity: 0.75;
+}
+
+.btn-delete-action:hover {
+    background: rgba(244, 63, 94, 0.15);
+    opacity: 1;
+    transform: scale(1.1);
+}
+
 .empty-state {
     text-align: center;
     padding: 40px 20px;

@@ -266,6 +266,25 @@ app.delete(['/api/expenses/:id', '/expenses/:id'], async (req, res) => {
     }
 });
 
+// Update expense
+app.put(['/api/expenses/:id', '/expenses/:id'], async (req, res) => {
+    try {
+        const { amount, categoryId, date, description } = req.body;
+        const result = await Expense.findOneAndUpdate(
+            { id: req.params.id },
+            { amount, categoryId, date, description },
+            { new: true }
+        );
+        if (!result) {
+            return res.status(404).json({ error: 'Expense not found' });
+        }
+        res.json(result);
+    } catch (e) {
+        console.error('Error updating expense:', e);
+        res.status(500).json({ error: 'Server error updating expense', details: e.message });
+    }
+});
+
 // Add new category scoped to user
 app.post(['/api/categories', '/categories'], async (req, res) => {
     try {

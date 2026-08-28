@@ -168,11 +168,11 @@
         </main>
     </div>
 
-    <!-- MODAL: Add Expense -->
+    <!-- MODAL: Add / Edit Expense -->
     <div class="modal-overlay" id="expense-modal">
         <div class="modal-content">
             <div class="modal-header">
-                <h3 class="modal-title">הוספת הוצאה חדשה</h3>
+                <h3 class="modal-title" id="expense-modal-title">הוספת הוצאה חדשה</h3>
                 <button type="button" class="btn-close" id="btn-close-expense-modal">&times;</button>
             </div>
             <form id="expense-form">
@@ -196,7 +196,7 @@
                 </div>
                 <div class="form-actions">
                     <button type="button" class="btn btn-secondary btn-cancel" id="btn-cancel-expense">ביטול</button>
-                    <button type="submit" class="btn btn-primary">שמור הוצאה</button>
+                    <button type="submit" class="btn btn-primary" id="btn-submit-expense">שמור הוצאה</button>
                 </div>
             </form>
         </div>

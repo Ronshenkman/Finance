@@ -4,6 +4,7 @@ let state = {
     activeUserId: '',
     categories: [],
     expenses: [],
+    editingExpenseId: null,
     billingDay: 1,
     currentAnchorDate: new Date().toISOString(),
     activeChartType: 'categories' // 'categories' or 'trend'
@@ -471,15 +472,21 @@ function updateDatePreview() {
 
 function openModal(modal) {
     modal.classList.add('active');
-    // For expense modal, reset form fields but keep date as today
+    // For expense modal, reset form fields but keep date as today if adding
     if (modal === expenseModal) {
-        document.getElementById('expense-amount').value = '';
-        document.getElementById('expense-desc').value = '';
-        if (datePickerInstance) {
-            datePickerInstance.setDate(new Date(), true);
-        } else {
-            const expDateEl = document.getElementById('expense-date');
-            if (expDateEl) expDateEl.value = new Date().toISOString().split('T')[0];
+        if (!state.editingExpenseId) {
+            const modalTitle = document.getElementById('expense-modal-title');
+            if (modalTitle) modalTitle.textContent = 'הוספת הוצאה חדשה';
+            const submitBtn = document.getElementById('btn-submit-expense');
+            if (submitBtn) submitBtn.textContent = 'שמור הוצאה';
+            document.getElementById('expense-amount').value = '';
+            document.getElementById('expense-desc').value = '';
+            if (datePickerInstance) {
+                datePickerInstance.setDate(new Date(), true);
+            } else {
+                const expDateEl = document.getElementById('expense-date');
+                if (expDateEl) expDateEl.value = new Date().toISOString().split('T')[0];
+            }
         }
     } else if (modal === categoryModal) {
         document.getElementById('category-name').value = '';
@@ -505,8 +512,41 @@ function openModal(modal) {
     }
 }
 
+function openEditExpenseModal(expenseId) {
+    const exp = state.expenses.find(e => e.id === expenseId);
+    if (!exp) return;
+
+    state.editingExpenseId = expenseId;
+    const modalTitle = document.getElementById('expense-modal-title');
+    if (modalTitle) modalTitle.textContent = 'עריכת הוצאה';
+    const submitBtn = document.getElementById('btn-submit-expense');
+    if (submitBtn) submitBtn.textContent = 'עדכן הוצאה';
+
+    document.getElementById('expense-amount').value = exp.amount;
+    document.getElementById('expense-category').value = exp.categoryId;
+    document.getElementById('expense-desc').value = exp.description || '';
+
+    if (datePickerInstance) {
+        datePickerInstance.setDate(exp.date, true);
+    } else {
+        const expDateEl = document.getElementById('expense-date');
+        if (expDateEl) expDateEl.value = exp.date;
+    }
+
+    openModal(expenseModal);
+}
+
 function closeModal(modal) {
-    if (modal) modal.classList.remove('active');
+    if (modal) {
+        modal.classList.remove('active');
+        if (modal === expenseModal) {
+            state.editingExpenseId = null;
+            const modalTitle = document.getElementById('expense-modal-title');
+            if (modalTitle) modalTitle.textContent = 'הוספת הוצאה חדשה';
+            const submitBtn = document.getElementById('btn-submit-expense');
+            if (submitBtn) submitBtn.textContent = 'שמור הוצאה';
+        }
+    }
 }
 
 // User Switching Handler
@@ -615,7 +655,7 @@ async function handleDeleteActiveUser() {
     }
 }
 
-// Add Expense Form Handler
+// Add / Edit Expense Form Handler
 async function handleAddExpense(e) {
     e.preventDefault();
     const amount = parseFloat(document.getElementById('expense-amount').value);
@@ -636,8 +676,11 @@ async function handleAddExpense(e) {
     const category = state.categories.find(c => c.id === categoryId);
     const description = rawDesc || (category ? category.name : 'הוצאה');
 
-    const newExpense = {
-        id: 'exp-' + Date.now(),
+    const isEditing = Boolean(state.editingExpenseId);
+    const expenseId = state.editingExpenseId || ('exp-' + Date.now());
+
+    const expensePayload = {
+        id: expenseId,
         userId: state.activeUserId || 'user-default',
         amount,
         categoryId,
@@ -646,17 +689,21 @@ async function handleAddExpense(e) {
     };
 
     try {
-        const res = await fetch('/api/expenses', {
-            method: 'POST',
+        const url = isEditing ? `/api/expenses/${expenseId}` : '/api/expenses';
+        const method = isEditing ? 'PUT' : 'POST';
+
+        const res = await fetch(url, {
+            method,
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(newExpense)
+            body: JSON.stringify(expensePayload)
         });
         if (!res.ok) {
             const errBody = await res.text();
-            console.error('API save failed:', errBody);
-            throw new Error('API save failed');
+            console.error(`API ${method} failed:`, errBody);
+            throw new Error(`API save failed: ${res.status}`);
         }
         
+        state.editingExpenseId = null;
         // Reload fresh from server to ensure UI matches DB
         closeModal(expenseModal);
         await loadStateFromServer();
@@ -664,8 +711,16 @@ async function handleAddExpense(e) {
         renderApp();
     } catch (err) {
         console.error('Error saving expense to server:', err);
-        // Fallback for offline mode - push locally
-        state.expenses.push(newExpense);
+        // Fallback for offline mode - update/push locally
+        if (isEditing) {
+            const idx = state.expenses.findIndex(e => e.id === expenseId);
+            if (idx !== -1) {
+                state.expenses[idx] = { ...state.expenses[idx], ...expensePayload };
+            }
+        } else {
+            state.expenses.push(expensePayload);
+        }
+        state.editingExpenseId = null;
         saveStateToLocalStorage();
         closeModal(expenseModal);
         renderApp();
@@ -1140,14 +1195,21 @@ function renderTransactions() {
                 <span>-${formatCurrency(exp.amount)}</span>
             </td>
             <td style="text-align: center;">
-                <button class="btn btn-danger-link btn-icon btn-close" style="font-size: 14px;" onclick="window.triggerDeleteExpense('${exp.id}')">🗑️</button>
+                <div class="tx-actions">
+                    <button class="btn-edit-action" onclick="window.triggerEditExpense('${exp.id}')" title="ערוך הוצאה">✏️</button>
+                    <button class="btn-delete-action" onclick="window.triggerDeleteExpense('${exp.id}')" title="מחק הוצאה">🗑️</button>
+                </div>
             </td>
         `;
         transactionsList.appendChild(tr);
     });
 }
 
-// Expose click function to global window scope safely for table elements
+// Expose click functions to global window scope safely for table elements
+window.triggerEditExpense = function(expenseId) {
+    openEditExpenseModal(expenseId);
+};
+
 window.triggerDeleteExpense = function(expenseId) {
     deleteExpense(expenseId);
 };
